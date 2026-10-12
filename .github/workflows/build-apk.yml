@@ -1,0 +1,53 @@
+
+name: Build AUHD Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "AUHD_Android_Project.zip"
+      - ".github/workflows/build-apk.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Extract Android project
+        run: |
+          mkdir android-project
+          unzip AUHD_Android_Project.zip -d android-project
+          echo "Extracted project files:"
+          find android-project -maxdepth 3 -type f | head -80
+
+      - name: Build debug APK
+        run: |
+          PROJECT_DIR="$(find android-project -name settings.gradle -o -name settings.gradle.kts | head -1 | xargs dirname)"
+          if [ -z "$PROJECT_DIR" ]; then
+            PROJECT_DIR="$(find android-project -name build.gradle -o -name build.gradle.kts | head -1 | xargs dirname)"
+          fi
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Could not find Android Gradle project files."
+            exit 1
+          fi
+          cd "$PROJECT_DIR"
+          gradle assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AUHD-Student-Portal-APK
+          path: android-project/**/*.apk
+          if-no-files-found: error
